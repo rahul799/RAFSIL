@@ -1,0 +1,82 @@
+---
+title: "RAFSIL"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteIndexEntry{rafsil}
+  %\VignetteEncoding{UTF-8}{inputenc}
+---
+
+### Simple example of running RAFSIL
+
+A small example dataset is included in the ```RAFSIL``` package. 
+
+```{r,include=TRUE, eval=TRUE, eval=TRUE,messages=FALSE}
+library(RAFSIL)
+library(grid)
+library(gridGraphics)
+library(gridExtra)
+dat.file =  system.file("extdata", "example_data.rds", package = "RAFSIL",mustWork = TRUE)
+dat      = readRDS(dat.file) 
+ord = order(dat$labels) ; dat$expr=dat$expr[,ord] ; dat$labels = dat$labels[ord] ; rm(ord)
+```
+
+The data contains a list with two components. ```dat$expr``` contains expression values (for roughly 2,500 highly expressed genes) for 80 cells of developing lung epithelium ([(Treutlein et al)](https://www.nature.com/articles/nature13173)). The authors have annotated five developmental stages, which are represented in ```dat$lables``. Note that typically RAFSIL would work with a larger set of genes, and we work with highly expressed genes only to keep the size of the included dataset small.
+
+```{r}
+table(dat$labels)
+dim(dat$expr)
+```
+
+Next, derive similarities between the cells using RAFSIL1, RAFSIL2, and Spearman correlation.
+```{r, include=TRUE, eval=TRUE, eval=TRUE, messages=FALSE}
+
+#- run RAFSIL1 with 50 forests
+res.r1 = RAFSIL(t(dat$expr),nrep = 50, method="RAFSIL1")
+res.r2 = RAFSIL(t(dat$expr),           method="RAFSIL2")
+
+#- retriev the dissimilarities
+dis.r1  = res.r1$D
+dis.r2  = res.r2$D
+dis.cor = sqrt((1 - cor(dat$expr,method="spearman"))/2)
+```
+
+### Visualization of results
+
+Having derived dissimilarities, we visualize them in a heatmap; From left to right: RAFSIL1, RAFSIL2, and correlation.
+
+```{r, include=TRUE, eval=TRUE, eval=TRUE, messages=FALSE, fig.show="hide"}
+plotSIM(dis.r1  ,labels=dat$labels); grid.echo(); g1 = grid.grab()
+plotSIM(dis.r2  ,labels=dat$labels); grid.echo(); g2 = grid.grab()
+plotSIM(dis.cor ,labels=dat$labels) ; grid.echo(); g3 = grid.grab()
+```
+
+```{r, include=TRUE, eval=TRUE, eval=TRUE, messages=FALSE,fig.show="asis",fig.dim=c(5,2)}
+grid.arrange(g1,g2,g3,ncol=3,clip="on")
+```
+
+Finally, we visualize the data with derived distances in two dimensions using tSNE.
+We distinguish two cases (rows): Providing tSNE with the derived distances (first row), 
+and using the derived distances as a featrue embedding for each cell (second row).
+
+
+```{r, include=TRUE, eval=TRUE, eval=TRUE, messages=FALSE,fig.show="asis",fig.dim=c(6,5)}
+par(mfrow=c(2,3))
+par(mai=c(.1,.1,.5,.1))
+plotTSNE(dis.r1,labels=dat$labels,is_distance=TRUE,verbose=FALSE,perplexity=20)
+mtext("rafsil-1", line=1)
+plotTSNE(dis.r2,labels=dat$labels,is_distance=TRUE,verbose=FALSE,perplexity=20)
+mtext("rafsil-2", line=1)
+plotTSNE(dis.cor,labels=dat$labels,is_distance=TRUE,verbose=FALSE,perplexity=20)
+mtext("correlation", line=1)
+
+plotTSNE(dis.r1,labels=dat$labels,is_distance=FALSE,verbose=FALSE,perplexity=20)
+mtext("rafsil-1 / embedding", line=1)
+plotTSNE(dis.r2,labels=dat$labels,is_distance=FALSE,verbose=FALSE,perplexity=20)
+mtext("rafsil-2 / embedding", line=1)
+plotTSNE(dis.cor,labels=dat$labels,is_distance=FALSE,verbose=FALSE,perplexity=20)
+mtext("correlation / embedding", line=1)
+```
+
+
